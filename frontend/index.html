@@ -1,0 +1,100 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的 BBS</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <h1>我的 BBS</h1>
+    <p>一个正在开发中的论坛。</p>
+
+    <h2>发布新帖子</h2>
+    <form id="postForm">
+        <input id="author" placeholder="作者名称" required maxlength="40">
+        <input id="title" placeholder="帖子标题" required maxlength="100">
+        <textarea id="content" placeholder="写下帖子内容……" required maxlength="10000"></textarea>
+        <button type="submit">发布帖子</button>
+    </form>
+    <p id="status" role="status"></p>
+
+    <h2>帖子列表</h2>
+    <div id="posts">正在加载帖子……</div>
+
+    <script>
+        const postsElement = document.getElementById("posts");
+        const statusElement = document.getElementById("status");
+        const form = document.getElementById("postForm");
+
+        async function loadPosts() {
+            try {
+                const response = await fetch("/api/posts");
+                if (!response.ok) throw new Error("获取帖子失败");
+
+                const posts = await response.json();
+                postsElement.replaceChildren();
+
+                if (posts.length === 0) {
+                    postsElement.textContent = "还没有帖子，发布第一篇吧。";
+                    return;
+                }
+
+                for (const post of [...posts].reverse()) {
+                    const article = document.createElement("article");
+                    article.className = "post";
+
+                    const title = document.createElement("h3");
+                    title.textContent = post.title;
+
+                    const meta = document.createElement("p");
+                    meta.className = "meta";
+                    meta.textContent =
+                        `${post.author || "匿名"} · ${post.created}`;
+
+                    const content = document.createElement("p");
+                    content.textContent = post.content;
+                    content.style.whiteSpace = "pre-wrap";
+
+                    article.append(title, meta, content);
+                    postsElement.append(article);
+                }
+            } catch (error) {
+                postsElement.textContent = "加载失败：" + error.message;
+            }
+        }
+
+        form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            statusElement.textContent = "正在发布……";
+
+            try {
+                const response = await fetch("/api/posts", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        author: document.getElementById("author").value.trim(),
+                        title: document.getElementById("title").value.trim(),
+                        content: document.getElementById("content").value.trim()
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(await response.text());
+                }
+
+                form.reset();
+                statusElement.textContent = "发布成功。";
+                await loadPosts();
+            } catch (error) {
+                statusElement.textContent = "发布失败：" + error.message;
+            }
+        });
+
+        loadPosts();
+    </script>
+</body>
+</html>
